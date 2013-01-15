@@ -1,7 +1,7 @@
 package lexer
 
 type lexer struct {
-	name   string  // the name of the input; used only for error reports.
+	// name   string  // the name of the input; used only for error reports.
 	input  string  // the string being scanned.
 	state  stateFn // the next lexing function to enter.
 	pos    int     // current position in the input.
@@ -9,7 +9,7 @@ type lexer struct {
 	width  int     // width of last rune read from input.
 	line   int
 	column int
-	items  chan item // channel of scanned items.
+	items  chan Item // channel of scanned items.
 }
 
 type stateFn func(Lexer) stateFn
@@ -19,7 +19,7 @@ type Lexer interface {
 	Peek() rune
 	Backup()
 	Emit(itemType)
-	NextItem() item
+	NextItem() Item
 	Ignore()
 	Accept(string) (bool, int)
 	AcceptRun(string)
@@ -35,12 +35,11 @@ type Lexer interface {
 	Pos() int
 }
 
-func New(name, input string, bufferSize int) Lexer {
+func New(input string) Lexer {
 	l := &lexer{
-		name:  name,
 		input: input,
 		state: LexOutsideTree,
-		items: make(chan item, bufferSize),
+		items: make(chan Item, 2), // buffer size 1 works, 2 to make sure
 		line:  1,
 	}
 	return l

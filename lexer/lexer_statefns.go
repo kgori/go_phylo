@@ -25,14 +25,6 @@ func isSpace(r rune) bool {
 	return false
 }
 
-// func LexInsideTree() stateFn         { return LexInsideTree }
-// func LexLabel() stateFn        { return nil }
-// func LexQuotedString() stateFn { return nil }
-// func LexNumber() stateFn       { return nil }
-// func LexSingleQuote() stateFn  { return nil }
-// func LexDoubleQuote() stateFn  { return nil }
-// func LexComment() stateFn      { return nil }
-
 func LexNHX(l Lexer) stateFn {
 	b, itemType := l.MatchSingleChar()
 	if b {
@@ -41,7 +33,8 @@ func LexNHX(l Lexer) stateFn {
 			l.Ignore()
 			return LexKey
 		case ItemEquals:
-			l.Emit(ItemEquals)
+			// l.Emit(ItemEquals)
+			l.Ignore()
 			return LexValue
 		case ItemRSquare:
 			return LexInsideTree
@@ -99,44 +92,57 @@ func LexInsideTree(l Lexer) stateFn {
 	}
 	b, itemType := l.MatchSingleChar()
 	if b {
-		l.Emit(itemType)
+		// l.Emit(itemType)
 		switch itemType {
 		case ItemLBracket:
+			l.Emit(itemType)
+			if l.Peek() == ':' || l.Peek() == ',' {
+				return LexLabel
+			}
 			return LexInsideTree
 		case ItemRBracket:
+			l.Emit(itemType)
 			b, _ := l.Accept("0123456789.-+")
 			if b {
 				l.Backup()
-				return LexNumber
+				return LexSupportValue
 			} else {
 				return LexInsideTree
 			}
 		case ItemLSquare:
+			l.Ignore()
 			return LexComment
 		case ItemRSquare:
+			l.Ignore()
 			return LexInsideTree
 		case ItemColon:
-			return LexNumber
+			l.Ignore()
+			return LexBranchLength
 		case ItemSemiColon:
+			l.Emit(itemType)
 			return LexOutsideTree
 		case ItemComma:
+			l.Ignore()
 			return LexInsideTree
 		case ItemSingleQuote:
-			return LexQuotedString
+			l.Ignore()
+			return LexSingleQuotedString
 		case ItemDoubleQuote:
-			return LexQuotedString
+			l.Ignore()
+			return LexDoubleQuotedString
 		case ItemEquals:
+			l.Ignore()
 			return LexInsideTree
 		default:
 			return l.Errorf("unrecognized character in tree: %#U", itemType)
 		}
 	}
-	if isAlpha(l.Peek()) {
+	if isAlphaNumeric(l.Peek()) {
 		return LexLabel
 	}
-	if isNumeric(l.Peek()) {
-		return LexNumber
-	}
+	// if isNumeric(l.Peek()) {
+	// 	return LexNumber
+	// }
 	return LexInsideTree
 }
 
@@ -162,9 +168,16 @@ func LexOutsideTree(l Lexer) stateFn {
 	return nil
 }
 
-func LexNumber(l Lexer) stateFn {
+func LexBranchLength(l Lexer) stateFn {
 	if l.MatchNumber() {
-		l.Emit(ItemNumber)
+		l.Emit(ItemBranchLength)
+	}
+	return LexInsideTree
+}
+
+func LexSupportValue(l Lexer) stateFn {
+	if l.MatchNumber() {
+		l.Emit(ItemSupportValue)
 	}
 	return LexInsideTree
 }
@@ -176,7 +189,7 @@ func LexLabel(l Lexer) stateFn {
 	return LexInsideTree
 }
 
-func LexQuotedString(l Lexer) stateFn {
+func LexSingleQuotedString(l Lexer) stateFn {
 Loop:
 	for {
 		switch l.Next() {
@@ -184,11 +197,29 @@ Loop:
 			return l.Errorf("unterminated comment")
 		case '\'':
 			break Loop
+		}
+	}
+	l.Backup()
+	l.Emit(ItemLabel)
+	l.Next()
+	l.Ignore()
+	return LexInsideTree
+}
+
+func LexDoubleQuotedString(l Lexer) stateFn {
+Loop:
+	for {
+		switch l.Next() {
+		case eof:
+			return l.Errorf("unterminated comment")
 		case '"':
 			break Loop
 		}
 	}
+	l.Backup()
 	l.Emit(ItemLabel)
+	l.Next()
+	l.Ignore()
 	return LexInsideTree
 }
 

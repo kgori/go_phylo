@@ -35,15 +35,15 @@ func (l *lexer) Backup() {
 
 func (l *lexer) Emit(t itemType) {
 	fmt.Printf("Emitted %s, %s\n", t, l.input[l.start:l.pos])
-	l.items <- item{t, l.input[l.start:l.pos]}
+	l.items <- Item{t, l.input[l.start:l.pos]}
 	l.start = l.pos
 }
 
-func (l *lexer) NextItem() item {
+func (l *lexer) NextItem() Item {
 	for {
 		select {
-		case item := <-l.items:
-			return item
+		case Item := <-l.items:
+			return Item
 		default:
 			l.state = l.state(l)
 		}
@@ -79,7 +79,7 @@ func (l *lexer) NewLine() {
 }
 
 func (l *lexer) Errorf(format string, args ...interface{}) stateFn {
-	l.items <- item{ItemError, fmt.Sprintf(format, args...)}
+	l.items <- Item{ItemError, fmt.Sprintf(format, args...)}
 	return nil
 }
 
@@ -114,7 +114,7 @@ func (l *lexer) MatchNumber() bool {
 func (l *lexer) MatchLabel() bool {
 	for {
 		r := l.Next()
-		if !(strings.ContainsRune("_-.?!0123456789", r) || unicode.IsLetter(r)) {
+		if !(strings.ContainsRune("'_-.?!0123456789", r) || unicode.IsLetter(r)) {
 			l.Backup()
 			break
 		}
